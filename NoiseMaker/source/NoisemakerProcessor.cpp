@@ -19,7 +19,7 @@ namespace Steinberg {
 
 				//	mWaveTable.init(WaveTable::WaveType::SIN);
 				//	mWaveTable.init(WaveTable::WaveType::PULSE);
-				mWaveTable.init(WaveTable::WaveType::TRIANGLE);
+				mWaveTable.init(WaveTable::WaveType::SIN);
 			}
 
 
@@ -68,7 +68,9 @@ namespace Steinberg {
 			//------------------------------------------------------------------------
 			tresult PLUGIN_API NoisemakerProcessor::process(Vst::ProcessData& data)
 			{
-				// if (data.inputParameterChanges) {}
+				if (data.inputParameterChanges) {
+					processParamsChange(data);
+				}
 
 				if (data.inputEvents) {
 					processEvents(data.inputEvents);
@@ -89,6 +91,31 @@ namespace Steinberg {
 			//------------------------------------------------------------------------
 			tresult PLUGIN_API NoisemakerProcessor::setState(IBStream* state)
 			{
+				if (!state)
+					return kResultFalse;
+
+				IBStreamer streamer(state, kLittleEndian);
+
+				int32 savedBypass = 0;
+				if (streamer.readInt32(savedBypass) == false)
+					return kResultFalse;
+
+				float volume = 0.f;
+				if (streamer.readFloat(volume) == false)
+					return kResultFalse;
+
+				int32 waveTypeInt = 0;
+				if (streamer.readInt32(waveTypeInt) == false)
+					return kResultFalse;
+				WaveTable::WaveType  waveType = (WaveTable::WaveType)  waveTypeInt;
+
+				if (waveType != mWaveType) {
+					mWaveTable.init(waveType);
+				}
+
+				mVolume = volume;
+				mWaveType = waveType;
+
 				return kResultOk;
 			}
 
@@ -96,7 +123,55 @@ namespace Steinberg {
 			//------------------------------------------------------------------------
 			tresult PLUGIN_API NoisemakerProcessor::getState(IBStream* state)
 			{
+				int32 toSaveBypass = mBypass ? 1 : 0;
+				float toSaveVolume = mVolume;
+				int32 toSaveWaveType = mWaveType;
+
+				IBStreamer streamer(state, kLittleEndian);
+				streamer.writeInt32(toSaveBypass);
+				streamer.writeFloat(toSaveVolume);
+				streamer.writeInt32(toSaveWaveType);
+
 				return kResultOk;
+			}
+
+
+			//-----------------------------------------------------------------------------
+			void NoisemakerProcessor::processParamsChange(Vst::ProcessData& data)
+			{
+				int32 numParamsChanged = data.inputParameterChanges->getParameterCount();
+				for (int32 index = 0; index < numParamsChanged; index++)
+				{
+					Vst::IParamValueQueue* paramQueue =
+						data.inputParameterChanges->getParameterData(index);
+					if (paramQueue)
+					{
+						Vst::ParamValue value;
+						int32 sampleOffset;
+						int32 numPoints = paramQueue->getPointCount();
+						switch (paramQueue->getParameterId())
+						{
+						case  NoisemakerParams::kVolume:
+							if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==
+								kResultTrue)
+								mVolume = value;
+							break;
+						case NoisemakerParams::kWaveType:
+							if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==
+								kResultTrue) {
+								int n = (int)(value * 5);
+								mWaveType = (WaveTable::WaveType)  n;
+								mWaveTable.init(mWaveType);
+							}
+							break;
+						case NoisemakerParams::kBypassId:
+							if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==
+								kResultTrue)
+								mBypass = (value > 0.5f);
+							break;
+						}
+					}
+				}
 			}
 
 
@@ -128,6 +203,10 @@ namespace Steinberg {
 							ch0[iSample] += state->getNextSimple(wave_table);
 						}
 					}
+				}
+
+				for (int iSample = 0; iSample < num_samples; ++iSample) {
+					ch0[iSample] = ch0[iSample] * mVolume;
 				}
 
 				for (int iChl = 1; iChl < num_channels; ++iChl) {

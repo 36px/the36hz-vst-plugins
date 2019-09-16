@@ -19,7 +19,7 @@ namespace Steinberg {
 
 			public:
 
-				enum WaveType { SIN, PULSE, TRIANGLE };
+				enum WaveType { UNDEFINE, SIN, PULSE, TRIANGLE };
 
 				static const double  oneCircuit;
 

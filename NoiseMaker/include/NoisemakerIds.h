@@ -8,6 +8,8 @@ namespace Steinberg {
 
 			enum NoisemakerParams : Vst::ParamID {
 				kBypassId = 100,
+				kWaveType = 1001,
+				kVolume = 1002,
 			};
 
 			static const FUID MyProcessorUID(0x1D049745, 0x348E4E8A, 0x8D03B63F, 0x104980AC);

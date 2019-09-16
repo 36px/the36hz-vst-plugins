@@ -38,8 +38,11 @@ namespace Steinberg {
 				KeyState  mKeyStateNop;
 
 				bool mBypass = false;
+				WaveTable::WaveType  mWaveType = WaveTable::UNDEFINE;
+				float mVolume = 1;
 
 			private:
+				void processParamsChange(Vst::ProcessData& data);
 				void processEvents(Vst::IEventList* eventlist);
 				void processEvent(const Vst::Event& e);
 				void processWaveOutput(Vst::ProcessData& data);
